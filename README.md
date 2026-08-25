@@ -1,0 +1,3 @@
+# Object cloud
+
+Object-cloud is a lightweight, high-performance file storage microservice written in Go. It enables backend applications to generate secure, presigned upload tokens so client browsers can upload files directly to the storage server, keeping heavy file traffic off your main application backend. For version 1, it operates as a streamlined, single-node service that streams file uploads straight to local disk and serves them publicly, providing a foundational storage primitive that can be shared across multiple projects. The architecture is designed to be simple today, establishing the groundwork to eventually evolve into a partitioned, highly available distributed cluster in future versions.
