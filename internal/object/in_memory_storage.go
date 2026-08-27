@@ -1,34 +1,37 @@
 package object
 
-import "io"
-import "fmt"
-import "errors"
-import "bytes"
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+)
 
+var ErrNotFound = errors.New("no object")
 
 type inMemoryStorage struct {
-    savedFiles map[string][]byte  
+	savedFiles map[string][]byte
 }
 
 func InMemoryStorage() *inMemoryStorage {
-	  return &inMemoryStorage { 
-  	  	savedFiles: make(map[string][]byte),
-	  }
+	return &inMemoryStorage{
+		savedFiles: make(map[string][]byte),
+	}
 }
 
 func (s *inMemoryStorage) Save(key string, data io.Reader) error {
-  	bytes, err := io.ReadAll(data)
-  	if err != nil {
-    		return fmt.Errorf("failed to read data: %w", err)
-  	}
-  	s.savedFiles[key] = bytes
-		return nil
+	content, err := io.ReadAll(data)
+	if err != nil {
+		return fmt.Errorf("failed to read data: %w", err)
+	}
+	s.savedFiles[key] = content
+	return nil
 }
 
-func (s *inMemoryStorage) Load(key string) (error, io.Reader) {
-	data := s.savedFiles[key]
-	if data != nil {
-		return errors.New("no object"), nil
+func (s *inMemoryStorage) Load(key string) (io.Reader, error) {
+	data, ok := s.savedFiles[key]
+	if !ok {
+		return nil, ErrNotFound
 	}
-  return nil, bytes.NewReader(data)
+	return bytes.NewReader(data), nil
 }

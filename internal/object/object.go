@@ -2,15 +2,14 @@ package object
 
 import "io"
 
-
 type Store struct {
-    storage Storage
+	storage Storage
 }
 
 func NewStore(storage Storage) *Store {
-    return &Store{storage: storage}
+	return &Store{storage: storage}
 }
 
 func (s *Store) Upload(key string, data io.Reader) error {
-    return s.storage.Save(key, data)
+	return s.storage.Save(key, data)
 }

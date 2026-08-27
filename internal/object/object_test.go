@@ -2,9 +2,9 @@ package object_test
 
 import (
 	"bytes"
+	"github.com/kzielonka/object-cloud/internal/object"
 	"io"
 	"testing"
-	"github.com/kzielonka/object-cloud/internal/object"
 )
 
 type SpyStorage struct {
@@ -16,7 +16,7 @@ type SpyStorage struct {
 func (s *SpyStorage) Save(key string, data io.Reader) error {
 	s.SaveWasCalled = true
 	s.SavedKey = key
-	
+
 	if data != nil {
 		s.SavedData, _ = io.ReadAll(data)
 	}
@@ -27,7 +27,7 @@ func TestStore_Upload(t *testing.T) {
 	// Arrange: Set up our dependencies
 	spy := &SpyStorage{}
 	store := object.NewStore(spy)
-	
+
 	testKey := "pets/dog-123.jpg"
 	testContent := []byte("fake image content")
 	reader := bytes.NewReader(testContent)
