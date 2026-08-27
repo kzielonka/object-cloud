@@ -7,15 +7,15 @@ import (
 	"testing"
 )
 
-type SpyStorage struct {
+type SpyFileSystem struct {
 	SaveWasCalled bool
-	SavedKey      string
+	SavedPath     string
 	SavedData     []byte
 }
 
-func (s *SpyStorage) Save(key string, data io.Reader) error {
+func (s *SpyFileSystem) SaveFile(path string, data io.Reader) error {
 	s.SaveWasCalled = true
-	s.SavedKey = key
+	s.SavedPath = path
 
 	if data != nil {
 		s.SavedData, _ = io.ReadAll(data)
@@ -23,9 +23,14 @@ func (s *SpyStorage) Save(key string, data io.Reader) error {
 	return nil
 }
 
+func (s *SpyFileSystem) OpenFile(path string) (io.Reader, error) {
+	s.SavedPath = path
+	return bytes.NewReader(s.SavedData), nil
+}
+
 func TestStore_Upload(t *testing.T) {
 	// Arrange: Set up our dependencies
-	spy := &SpyStorage{}
+	spy := &SpyFileSystem{}
 	store := object.NewStore(spy)
 
 	testKey := "pets/dog-123.jpg"
@@ -41,14 +46,35 @@ func TestStore_Upload(t *testing.T) {
 	}
 
 	if !spy.SaveWasCalled {
-		t.Errorf("expected Storage.Save to be called, but it was not")
+		t.Errorf("expected FileSystem.SaveFile to be called, but it was not")
 	}
 
-	if spy.SavedKey != testKey {
-		t.Errorf("expected key %q, got %q", testKey, spy.SavedKey)
+	if spy.SavedPath != testKey {
+		t.Errorf("expected path %q, got %q", testKey, spy.SavedPath)
 	}
 
 	if string(spy.SavedData) != string(testContent) {
 		t.Errorf("expected data %q, got %q", string(testContent), string(spy.SavedData))
+	}
+}
+
+func TestStore_Download(t *testing.T) {
+	testKey := "pets/dog-123.jpg"
+	testContent := []byte("fake image content")
+	spy := &SpyFileSystem{SavedPath: testKey, SavedData: testContent}
+	store := object.NewStore(spy)
+
+	reader, err := store.Download(testKey)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("unexpected error reading data: %v", err)
+	}
+
+	if string(data) != string(testContent) {
+		t.Errorf("expected data %q, got %q", string(testContent), string(data))
 	}
 }

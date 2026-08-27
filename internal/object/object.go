@@ -3,13 +3,17 @@ package object
 import "io"
 
 type Store struct {
-	storage Storage
+	fs FileSystem
 }
 
-func NewStore(storage Storage) *Store {
-	return &Store{storage: storage}
+func NewStore(fs FileSystem) *Store {
+	return &Store{fs: fs}
 }
 
 func (s *Store) Upload(key string, data io.Reader) error {
-	return s.storage.Save(key, data)
+	return s.fs.SaveFile(key, data)
+}
+
+func (s *Store) Download(key string) (io.Reader, error) {
+	return s.fs.OpenFile(key)
 }
