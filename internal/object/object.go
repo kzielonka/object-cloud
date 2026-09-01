@@ -1,6 +1,11 @@
 package object
 
-import "io"
+import (
+	"errors"
+	"io"
+)
+
+var StoreError = errors.New("store error")
 
 type Store struct {
 	fs FileSystem
@@ -11,9 +16,17 @@ func NewStore(fs FileSystem) *Store {
 }
 
 func (s *Store) Upload(key string, data io.Reader) error {
-	return s.fs.SaveFile(key, data)
+	err := s.fs.SaveFile(key, data)
+	if err != nil {
+		return StoreError
+	}
+	return nil
 }
 
 func (s *Store) Download(key string) (io.Reader, error) {
-	return s.fs.OpenFile(key)
+	data, err := s.fs.OpenFile(key)
+	if err != nil {
+		return nil, StoreError
+	}
+	return data, nil
 }

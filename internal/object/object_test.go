@@ -2,10 +2,10 @@ package object_test
 
 import (
 	"bytes"
+	"errors"
+	"github.com/kzielonka/object-cloud/internal/object"
 	"io"
 	"testing"
-
-	"github.com/kzielonka/object-cloud/internal/object"
 )
 
 func TestStore_UploadAndDownload(t *testing.T) {
@@ -40,4 +40,43 @@ func TestStore_UploadAndDownload(t *testing.T) {
 	}
 }
 
+type fakeFileSystem struct{}
 
+func (fs *fakeFileSystem) SaveFile(path string, data io.Reader) error {
+	return errors.New("save error")
+}
+
+func (fs *fakeFileSystem) OpenFile(path string) (io.Reader, error) {
+	return nil, errors.New("open error")
+
+}
+
+func TestStore_UploadErrorTranslation(t *testing.T) {
+	// Arrange: Set up our dependencies
+	fs := &fakeFileSystem{}
+	store := object.NewStore(fs)
+
+	testKey := "pets/dog-123.jpg"
+	testContent := []byte("fake image content")
+	reader := bytes.NewReader(testContent)
+
+	err := store.Upload(testKey, reader)
+
+	if !errors.Is(err, object.StoreError) {
+		t.Errorf("expected StoreError, got %s", err)
+	}
+}
+
+func TestStore_DownloadErrorTranslation(t *testing.T) {
+	// Arrange: Set up our dependencies
+	fs := &fakeFileSystem{}
+	store := object.NewStore(fs)
+
+	testKey := "pets/dog-123.jpg"
+
+	_, err := store.Download(testKey)
+
+	if !errors.Is(err, object.StoreError) {
+		t.Errorf("expected StoreError, got %s", err)
+	}
+}
