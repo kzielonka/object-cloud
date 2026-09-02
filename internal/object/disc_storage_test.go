@@ -5,8 +5,9 @@ import (
 	"testing"
 )
 
-func TestInMemoryFileSystem_Contract(t *testing.T) {
+func TestDiscFileSystem_Contract(t *testing.T) {
 	RunStorageContractTests(t, func(t *testing.T) object.FileSystem {
-		return object.InMemoryFileSystem()
+		testDir := t.TempDir()
+		return object.DiscFileSystem(testDir)
 	})
 }

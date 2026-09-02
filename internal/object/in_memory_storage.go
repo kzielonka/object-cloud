@@ -2,12 +2,9 @@ package object
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 )
-
-var ErrNotFound = errors.New("no object")
 
 type inMemoryFileSystem struct {
 	savedFiles map[string][]byte
