@@ -2,23 +2,23 @@ package object
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 )
 
-type discFileSystem struct {
+type diskFileSystem struct {
 	dirPath string
 }
 
-func DiscFileSystem(path string) *discFileSystem {
-	return &discFileSystem{
+func NewDiskFileSystem(path string) *diskFileSystem {
+	return &diskFileSystem{
 		dirPath: path,
 	}
 }
 
-func (s *discFileSystem) SaveFile(path string, data io.Reader) error {
+func (s *diskFileSystem) SaveFile(path string, data io.Reader) error {
 	fullPath := filepath.Join(s.dirPath, path)
 	outFile, _ := os.Create(fullPath)
 	defer outFile.Close()
@@ -27,12 +27,14 @@ func (s *discFileSystem) SaveFile(path string, data io.Reader) error {
 	return nil
 }
 
-func (s *discFileSystem) OpenFile(path string) (io.Reader, error) {
+func (s *diskFileSystem) OpenFile(path string) (io.Reader, error) {
 	fullPath := filepath.Join(s.dirPath, path)
 	file, err := os.Open(fullPath)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return nil, ErrNotFound
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ErrNotFound
+		}
+		return nil, err
 	}
 	defer file.Close()
 

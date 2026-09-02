@@ -10,17 +10,17 @@ import (
 
 type FileSystemFactory func(t *testing.T) object.FileSystem
 
-func RunStorageContractTests(t *testing.T, factoryFs FileSystemFactory) {
-	t.Run("return error when path is not set", func(t *testing.T) {
-		fs := factoryFs(t)
+func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
+	t.Run("returns ErrNotFound when file does not exist", func(t *testing.T) {
+		fs := newFS(t)
 		_, err := fs.OpenFile("file-id")
 		if err == nil {
 			t.Fatalf("expected error when path is not set, got nil")
 		}
 	})
 
-	t.Run("SetsPath", func(t *testing.T) {
-		fs := factoryFs(t)
+	t.Run("saves and reads back file content", func(t *testing.T) {
+		fs := newFS(t)
 		initialData := "hello"
 
 		err := fs.SaveFile("file-id", strings.NewReader(initialData))
@@ -43,8 +43,8 @@ func RunStorageContractTests(t *testing.T, factoryFs FileSystemFactory) {
 		}
 	})
 
-	t.Run("SetsTwoDifferentPaths", func(t *testing.T) {
-		fs := factoryFs(t)
+	t.Run("isolates multiple files with different paths", func(t *testing.T) {
+		fs := newFS(t)
 		initialData1 := "hello 1"
 		initialData2 := "hello 2"
 

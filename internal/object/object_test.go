@@ -10,7 +10,7 @@ import (
 
 func TestStore_UploadAndDownload(t *testing.T) {
 	// Arrange: Set up our dependencies
-	fs := object.InMemoryFileSystem()
+	fs := object.NewInMemoryFileSystem()
 	store := object.NewStore(fs)
 
 	testKey := "pets/dog-123.jpg"

@@ -57,14 +57,14 @@ import (
 
 type FileSystemFactory func(t *testing.T) object.FileSystem
 
-// RunStorageContractTests is a helper (does NOT start with Test), so it only runs when invoked
-func RunStorageContractTests(t *testing.T, newFS FileSystemFactory) {
-	t.Run("saves and opens file", func(t *testing.T) {
+// RunFileSystemContract is a helper (does NOT start with Test), so it only runs when invoked
+func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
+	t.Run("saves and reads back file content", func(t *testing.T) {
 		fs := newFS(t)
 		// test logic...
 	})
 
-	t.Run("returns ErrNotFound when missing", func(t *testing.T) {
+	t.Run("returns ErrNotFound when file does not exist", func(t *testing.T) {
 		fs := newFS(t)
 		// test logic...
 	})
@@ -75,8 +75,8 @@ func RunStorageContractTests(t *testing.T, newFS FileSystemFactory) {
 ```go
 // internal/object/in_memory_storage_test.go
 func TestInMemoryFileSystem_Contract(t *testing.T) {
-	RunStorageContractTests(t, func(t *testing.T) object.FileSystem {
-		return object.InMemoryFileSystem()
+	RunFileSystemContract(t, func(t *testing.T) object.FileSystem {
+		return object.NewInMemoryFileSystem()
 	})
 }
 ```

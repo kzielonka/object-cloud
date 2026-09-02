@@ -10,7 +10,7 @@ type inMemoryFileSystem struct {
 	savedFiles map[string][]byte
 }
 
-func InMemoryFileSystem() *inMemoryFileSystem {
+func NewInMemoryFileSystem() *inMemoryFileSystem {
 	return &inMemoryFileSystem{
 		savedFiles: make(map[string][]byte),
 	}

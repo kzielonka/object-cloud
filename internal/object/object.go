@@ -16,6 +16,7 @@ func NewStore(fs FileSystem) *Store {
 }
 
 func (s *Store) Upload(key string, data io.Reader) error {
+	// TODO: key should be converted to single file name (hashed)
 	err := s.fs.SaveFile(key, data)
 	if err != nil {
 		return StoreError
