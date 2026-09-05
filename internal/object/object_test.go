@@ -10,15 +10,20 @@ import (
 
 func TestStore_UploadAndDownload(t *testing.T) {
 	// Arrange: Set up our dependencies
-	fs := object.NewInMemoryFileSystem()
-	store := object.NewStore(fs)
+	store, err := object.NewStore(
+		object.WithInMemoryStorage(),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
 	testKey := "pets/dog-123.jpg"
 	testContent := []byte("fake image content")
 	reader := bytes.NewReader(testContent)
 
 	// Act: Execute upload
-	err := store.Upload(testKey, reader)
+	err = store.Upload(testKey, reader)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -53,14 +58,19 @@ func (fs *fakeFileSystem) OpenFile(path string) (io.Reader, error) {
 
 func TestStore_UploadErrorTranslation(t *testing.T) {
 	// Arrange: Set up our dependencies
-	fs := &fakeFileSystem{}
-	store := object.NewStore(fs)
+	store, err := object.NewStore(
+		object.WithFileSystem(&fakeFileSystem{}),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
 	testKey := "pets/dog-123.jpg"
 	testContent := []byte("fake image content")
 	reader := bytes.NewReader(testContent)
 
-	err := store.Upload(testKey, reader)
+	err = store.Upload(testKey, reader)
 
 	if !errors.Is(err, object.StoreError) {
 		t.Errorf("expected StoreError, got %s", err)
@@ -69,12 +79,17 @@ func TestStore_UploadErrorTranslation(t *testing.T) {
 
 func TestStore_DownloadErrorTranslation(t *testing.T) {
 	// Arrange: Set up our dependencies
-	fs := &fakeFileSystem{}
-	store := object.NewStore(fs)
+	store, err := object.NewStore(
+		object.WithFileSystem(&fakeFileSystem{}),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
 	testKey := "pets/dog-123.jpg"
 
-	_, err := store.Download(testKey)
+	_, err = store.Download(testKey)
 
 	if !errors.Is(err, object.StoreError) {
 		t.Errorf("expected StoreError, got %s", err)
