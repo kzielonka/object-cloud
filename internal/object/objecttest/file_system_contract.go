@@ -1,12 +1,15 @@
-package object
+package objecttest
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/kzielonka/object-cloud/internal/object"
 )
 
-type FileSystemFactory func(t *testing.T) FileSystem
+type FileSystemFactory func(t *testing.T) object.FileSystem
 
 func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 	t.Run("returns ErrNotFound when file does not exist", func(t *testing.T) {
@@ -14,6 +17,9 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 		_, err := fs.OpenFile("file-id")
 		if err == nil {
 			t.Fatalf("expected error when path is not set, got nil")
+		}
+		if !errors.Is(err, object.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})
 
