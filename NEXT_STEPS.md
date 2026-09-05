@@ -20,8 +20,8 @@ This document outlines the architectural decisions, technical debt, and future r
 The single-node storage engine (`pkg/object`) serves as the foundational drive-level primitive (similar to MinIO's `xl-storage` or CockroachDB's `Pebble`), managing raw I/O on attached disk storage.
 
 ### Key Hashing & Sanitization (`Store`)
-- [ ] **v1 Flat Key Hashing:**
-  * Logical user keys (e.g., `avatars/user/photo.jpg`, `../../etc/passwd`) are hashed with SHA-256 (`crypto/sha256` + `encoding/hex`) in `Store`.
+- [x] **v1 Flat Key Hashing:**
+  * Logical user keys (e.g., `avatars/user/photo.jpg`, `../../etc/passwd`) are hashed with SHA-256 (`KeyHasher` interface + `sha256KeyHasher`) in `Store`.
   * Guarantees 100% path-traversal protection and uniform safe filenames across all operating systems.
 - [ ] **v2 Prefix Sharding / Fan-out:**
   * When scaling to millions of files, split hash into subdirectories (e.g. `/data/e3/b0c442...` like Git objects) to prevent single-directory inode performance bottlenecks.
@@ -29,10 +29,12 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
 ### Crash Safety & Atomic Writes (`diskFileSystem`)
 - [ ] **Check `os.Create` error before `defer outFile.Close()`:**
   * Prevents nil pointer dereference panics when file creation fails.
-- [ ] **Atomic Writes via Temp File & `os.Rename`:**
-  * Write incoming stream to a temporary file (`.tmp_...`) first, then atomically rename to target path upon successful completion to prevent corrupt/partial files on disk if the connection or server drops.
-- [ ] **Handle `io.Copy` errors:**
-  * Ensure streaming write errors are properly caught and bubbled up.
+- [ ] **Atomic Writes via Staging File & `os.Rename`:**
+  * Write incoming stream to a temporary staging file (e.g. `.tmp_<random>`) in the same filesystem directory first.
+  * Once `io.Copy` finishes and the file is flushed/synced to disk with `outFile.Sync()`, atomically rename the temp file to the final destination via `os.Rename(tempPath, finalPath)`.
+  * Guarantees that power cuts, aborted uploads, or network disconnects never leave corrupted or partially written files on disk.
+- [ ] **Handle `io.Copy` errors & cleanup:**
+  * Ensure streaming write errors are caught and any leftover staging file is cleaned up via `os.Remove(tempPath)`.
 
 ### True Streaming Downloads (`io.ReadCloser`)
 - [ ] **Avoid buffering in RAM:**
