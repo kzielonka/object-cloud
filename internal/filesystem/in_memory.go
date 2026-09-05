@@ -1,16 +1,18 @@
-package object
+package filesystem
 
 import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"github.com/kzielonka/object-cloud/internal/object"
 )
 
 type inMemoryFileSystem struct {
 	savedFiles map[string][]byte
 }
 
-func NewInMemoryFileSystem() *inMemoryFileSystem {
+func NewInMemory() *inMemoryFileSystem {
 	return &inMemoryFileSystem{
 		savedFiles: make(map[string][]byte),
 	}
@@ -28,7 +30,7 @@ func (s *inMemoryFileSystem) SaveFile(path string, data io.Reader) error {
 func (s *inMemoryFileSystem) OpenFile(path string) (io.Reader, error) {
 	data, ok := s.savedFiles[path]
 	if !ok {
-		return nil, ErrNotFound
+		return nil, object.ErrNotFound
 	}
 	return bytes.NewReader(data), nil
 }

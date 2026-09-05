@@ -3,15 +3,17 @@ package object_test
 import (
 	"bytes"
 	"errors"
-	"github.com/kzielonka/object-cloud/internal/object"
 	"io"
 	"testing"
+
+	"github.com/kzielonka/object-cloud/internal/filesystem"
+	"github.com/kzielonka/object-cloud/internal/object"
 )
 
 func TestStore_UploadAndDownload(t *testing.T) {
 	// Arrange: Set up our dependencies
 	store, err := object.NewStore(
-		object.WithInMemoryStorage(),
+		object.WithFileSystem(filesystem.NewInMemory()),
 		object.WithDir("/test"),
 	)
 	if err != nil {

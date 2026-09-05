@@ -1,14 +1,12 @@
-package object_test
+package object
 
 import (
 	"io"
 	"strings"
 	"testing"
-
-	"github.com/kzielonka/object-cloud/internal/object"
 )
 
-type FileSystemFactory func(t *testing.T) object.FileSystem
+type FileSystemFactory func(t *testing.T) FileSystem
 
 func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 	t.Run("returns ErrNotFound when file does not exist", func(t *testing.T) {

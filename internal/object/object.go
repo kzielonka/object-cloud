@@ -74,14 +74,6 @@ func WithHasher(hasher KeyHasher) Option {
 	}
 }
 
-func WithDiskStorage(dirPath string) Option {
-	return WithFileSystem(NewDiskFileSystem(dirPath))
-}
-
-func WithInMemoryStorage() Option {
-	return WithFileSystem(NewInMemoryFileSystem())
-}
-
 func WithDir(dir string) Option {
 	return func(s *defaultStore) {
 		s.dir = dir

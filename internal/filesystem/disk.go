@@ -1,4 +1,4 @@
-package object
+package filesystem
 
 import (
 	"bytes"
@@ -6,13 +6,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/kzielonka/object-cloud/internal/object"
 )
 
 type diskFileSystem struct {
 	dirPath string
 }
 
-func NewDiskFileSystem(path string) *diskFileSystem {
+func NewDisk(path string) *diskFileSystem {
 	return &diskFileSystem{
 		dirPath: path,
 	}
@@ -32,7 +34,7 @@ func (s *diskFileSystem) OpenFile(path string) (io.Reader, error) {
 	file, err := os.Open(fullPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, ErrNotFound
+			return nil, object.ErrNotFound
 		}
 		return nil, err
 	}
