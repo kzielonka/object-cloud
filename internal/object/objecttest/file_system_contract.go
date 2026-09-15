@@ -125,4 +125,79 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})
+
+	t.Run("returns ErrNotFound when renaming non-existent file", func(t *testing.T) {
+		fs := newFS(t)
+
+		err := fs.RenameFile("file-1-id", "file-2-id")
+		if !errors.Is(err, object.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
+
+	t.Run("returns ErrFileExists when new file exists", func(t *testing.T) {
+		fs := newFS(t)
+
+		originalFile := "file-1-id"
+		destFile := "file-2-id"
+
+		err := fs.SaveFile(originalFile, strings.NewReader("some-data"))
+		if err != nil {
+			t.Fatalf("unexpected error saving: %v", err)
+		}
+
+
+		err = fs.SaveFile(destFile, strings.NewReader("some-data"))
+		if err != nil {
+			t.Fatalf("unexpected error saving: %v", err)
+		}
+
+		err = fs.RenameFile(originalFile, destFile)
+		if !errors.Is(err, object.ErrFileExists) {
+			t.Fatalf("expected ErrFileExists, got %v", err)
+		}
+	})
+
+	t.Run("renames file", func(t *testing.T) {
+		fs := newFS(t)
+
+		data := "some-data-1234"
+		originalFile := "file-1-id"
+		destFile := "file-2-id"
+
+		err := fs.SaveFile(originalFile, strings.NewReader(data))
+		if err != nil {
+			t.Fatalf("unexpected error saving: %v", err)
+		}
+
+		err = fs.RenameFile(originalFile, destFile)
+		if err != nil {
+			t.Fatalf("unexpected error renaming: %v", err)
+		}
+
+		stream, err := fs.OpenFile(destFile)
+		if stream != nil {
+			defer stream.Close()
+		}
+		if err != nil {
+			t.Fatalf("unexpected error opening destination file: %v", err)
+		}
+		bytes, err := io.ReadAll(stream)
+		if err != nil {
+			t.Fatalf("unexpected error reading stream: %v", err)
+		}
+		if string(bytes) != data {
+			t.Errorf("expected renamed data to be %q, got %q", data, string(bytes))
+		}
+
+		// Verify original file is gone
+		origStream, err := fs.OpenFile(originalFile)
+		if origStream != nil {
+			defer origStream.Close()
+			t.Fatalf("expected original file to no longer exist after rename")
+		}
+		if !errors.Is(err, object.ErrNotFound) {
+			t.Errorf("expected ErrNotFound for original file after rename, got %v", err)
+		}
+	})
 }

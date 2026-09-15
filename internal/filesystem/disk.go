@@ -58,6 +58,23 @@ func (s *diskFileSystem) DeleteFile(path string) error {
 	return nil
 }
 
+// RenameFile moves oldPath to newPath without overwriting an existing newPath.
+// Note: The check-then-rename prevents accidental overwrites, but is not fully
+// atomic against concurrent writes (TOCTOU race). In V2, consider atomic
+// overwrites or explicit object versioning / immutability.
 func (s *diskFileSystem) RenameFile(oldPath string, newPath string) error {
-	panic("not implemented")
+	fullOldPath := filepath.Join(s.dirPath, oldPath)
+	fullNewPath := filepath.Join(s.dirPath, newPath)
+	_, err := os.Stat(fullNewPath)
+	if err == nil {
+		return object.ErrFileExists
+	}
+	err = os.Rename(fullOldPath, fullNewPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return object.ErrNotFound
+		}
+		return err
+	}
+	return nil
 }

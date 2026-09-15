@@ -6,6 +6,7 @@ import (
 )
 
 var ErrNotFound = errors.New("no object")
+var ErrFileExists = errors.New("file exists")
 
 type FileSystem interface {
 	SaveFile(path string, data io.Reader) error

@@ -26,15 +26,20 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
 - [ ] **v2 Prefix Sharding / Fan-out:**
   * When scaling to millions of files, split hash into subdirectories (e.g. `/data/e3/b0c442...` like Git objects) to prevent single-directory inode performance bottlenecks.
 
-### Crash Safety & Atomic Writes (`diskFileSystem`)
+### Crash Safety & Atomic Writes
 - [x] **Check `os.Create` error before `defer outFile.Close()`:**
   * Prevents nil pointer dereference panics when file creation fails.
-- [ ] **Atomic Writes via Staging File & `os.Rename`:**
-  * Write incoming stream to a temporary staging file (e.g. `.tmp_<random>`) in the same filesystem directory first.
-  * Once `io.Copy` finishes and the file is flushed/synced to disk with `outFile.Sync()`, atomically rename the temp file to the final destination via `os.Rename(tempPath, finalPath)`.
-  * Guarantees that power cuts, aborted uploads, or network disconnects never leave corrupted or partially written files on disk.
-- [ ] **Handle `io.Copy` errors & cleanup:**
-  * Ensure streaming write errors are caught and any leftover staging file is cleaned up via `os.Remove(tempPath)`.
+- [x] **Add `DeleteFile` and `RenameFile` to `FileSystem` interface:**
+  * Implemented and contract-tested for both `diskFileSystem` and `inMemoryFileSystem`.
+- [ ] **[IMMEDIATE NEXT STEP] Atomic Uploads in `Store.Upload` (`internal/object/object.go`):**
+  * **Test First (TDD):** In `internal/object/object_test.go`, write tests simulating interrupted/broken uploads (using `io.MultiReader` or `io.Pipe`) and verify:
+    1. Failed uploads clean up the temporary staging file via `fs.DeleteFile(tempPath)` and do not expose a corrupted object.
+    2. Concurrent/in-progress uploads do not leak partial reads.
+    3. Successful uploads atomically commit via `fs.RenameFile(tempPath, finalPath)` without leaving lingering temp files.
+  * **Implementation:** In `defaultStore.Upload`, stream data to a temporary staging path (e.g. `path + ".tmp." + randomID`), call `fs.RenameFile(tempPath, finalPath)` on success, and ensure `fs.DeleteFile(tempPath)` is called if any step fails.
+- [ ] **v2 Overwrite Semantics & Object Versioning / Immutability:**
+  * Current v1 `RenameFile` prevents overwrites by checking `os.Stat` and returning `ErrFileExists` (favouring immutable keys / WORM, but with a non-atomic TOCTOU race).
+  * In v2, evaluate true atomic replacement (allowing `os.Rename` to atomically overwrite destination) vs formal object versioning (e.g. `key?version=2`).
 
 ### True Streaming Downloads (`io.ReadCloser`)
 - [x] **Avoid buffering in RAM:**

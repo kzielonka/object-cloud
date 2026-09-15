@@ -44,6 +44,20 @@ func (s *inMemoryFileSystem) DeleteFile(path string) error {
 	return nil
 }
 
+// RenameFile moves oldPath to newPath without overwriting an existing newPath.
+// Note: In V2, consider atomic overwrites or explicit object versioning / immutability.
 func (s *inMemoryFileSystem) RenameFile(oldPath string, newPath string) error {
-	panic("not implemented")
+	_, ok := s.savedFiles[oldPath]
+	if !ok {
+		return object.ErrNotFound
+	}
+	_, ok = s.savedFiles[newPath]
+	if ok {
+		return object.ErrFileExists
+	}
+
+	s.savedFiles[newPath] = s.savedFiles[oldPath]
+	delete(s.savedFiles, oldPath)
+
+	return nil
 }
