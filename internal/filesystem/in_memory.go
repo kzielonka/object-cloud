@@ -34,3 +34,16 @@ func (s *inMemoryFileSystem) OpenFile(path string) (io.ReadCloser, error) {
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
+
+func (s *inMemoryFileSystem) DeleteFile(path string) error {
+	_, ok := s.savedFiles[path]
+	if !ok {
+		return object.ErrNotFound
+	}
+	delete(s.savedFiles, path)
+	return nil
+}
+
+func (s *inMemoryFileSystem) RenameFile(oldPath string, newPath string) error {
+	panic("not implemented")
+}

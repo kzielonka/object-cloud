@@ -45,3 +45,19 @@ func (s *diskFileSystem) OpenFile(path string) (io.ReadCloser, error) {
 
 	return file, nil
 }
+
+func (s *diskFileSystem) DeleteFile(path string) error {
+	fullPath := filepath.Join(s.dirPath, path)
+	err := os.Remove(fullPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return object.ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *diskFileSystem) RenameFile(oldPath string, newPath string) error {
+	panic("not implemented")
+}

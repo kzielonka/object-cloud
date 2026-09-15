@@ -58,7 +58,14 @@ func (fs *fakeFileSystem) SaveFile(path string, data io.Reader) error {
 
 func (fs *fakeFileSystem) OpenFile(path string) (io.ReadCloser, error) {
 	return nil, errors.New("open error")
+}
 
+func (fs *fakeFileSystem) DeleteFile(path string) error {
+	return errors.New("delete error")
+}
+
+func (fs *fakeFileSystem) RenameFile(oldPath string, newPath string) error {
+	return errors.New("rename error")
 }
 
 func TestStore_UploadErrorTranslation(t *testing.T) {
@@ -127,6 +134,14 @@ func (fs *errorWithFileFileSystem) OpenFile(path string) (io.ReadCloser, error) 
 	return fs.file, fs.err
 }
 
+func (fs *errorWithFileFileSystem) DeleteFile(path string) error {
+	return nil
+}
+
+func (fs *errorWithFileFileSystem) RenameFile(oldPath string, newPath string) error {
+	return nil
+}
+
 func TestStore_DownloadClosesFileOnError(t *testing.T) {
 	trackingFile := &trackingReadCloser{}
 	fakeFS := &errorWithFileFileSystem{
@@ -151,20 +166,3 @@ func TestStore_DownloadClosesFileOnError(t *testing.T) {
 		t.Errorf("expected file to be closed when OpenFile returns an error with non-nil data")
 	}
 }
-
-func TestStore_UploadAtomicity(t *testing.T) {
-	// Arrange: Set up our dependencies
-	store, err := object.NewStore(
-		object.WithFileSystem(filesystem.NewInMemory()),
-		object.WithDir("/test"),
-	)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	testKey := "pets/dog-123.jpg"
-	reader := bytes.NewReader(testContent)
-
-}
-
-

@@ -92,4 +92,37 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 			t.Errorf("expected path2 to be %q, got %q", initialData2, string(bytes2))
 		}
 	})
+
+	t.Run("deletes existing file", func(t *testing.T) {
+		fs := newFS(t)
+		someData := "hello"
+
+		err := fs.SaveFile("file-id", strings.NewReader(someData))
+		if err != nil {
+			t.Fatalf("unexpected error saving: %v", err)
+		}
+
+		err = fs.DeleteFile("file-id")
+		if err != nil {
+			t.Fatalf("unexpected error deleting: %v", err)
+		}
+
+		stream, err := fs.OpenFile("file-id")
+		if stream != nil {
+			defer stream.Close()
+			t.Fatalf("deleted file stream should be nil")
+		}
+		if !errors.Is(err, object.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
+
+	t.Run("returns ErrNotFound when deleting non-existent file", func(t *testing.T) {
+		fs := newFS(t)
+
+		err := fs.DeleteFile("file-id")
+		if !errors.Is(err, object.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
 }
