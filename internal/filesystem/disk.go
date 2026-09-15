@@ -21,10 +21,15 @@ func NewDisk(path string) *diskFileSystem {
 
 func (s *diskFileSystem) SaveFile(path string, data io.Reader) error {
 	fullPath := filepath.Join(s.dirPath, path)
-	outFile, _ := os.Create(fullPath)
+	outFile, err := os.Create(fullPath)
+	if err != nil {
+		return err
+	}
 	defer outFile.Close()
-	// TODO: handle error
-	io.Copy(outFile, data)
+
+	if _, err := io.Copy(outFile, data); err != nil {
+		return err
+	}
 	return nil
 }
 

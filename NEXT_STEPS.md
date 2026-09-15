@@ -27,7 +27,7 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
   * When scaling to millions of files, split hash into subdirectories (e.g. `/data/e3/b0c442...` like Git objects) to prevent single-directory inode performance bottlenecks.
 
 ### Crash Safety & Atomic Writes (`diskFileSystem`)
-- [ ] **Check `os.Create` error before `defer outFile.Close()`:**
+- [x] **Check `os.Create` error before `defer outFile.Close()`:**
   * Prevents nil pointer dereference panics when file creation fails.
 - [ ] **Atomic Writes via Staging File & `os.Rename`:**
   * Write incoming stream to a temporary staging file (e.g. `.tmp_<random>`) in the same filesystem directory first.

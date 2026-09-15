@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/kzielonka/object-cloud/internal/object"
 )
@@ -20,6 +21,16 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 		}
 		if !errors.Is(err, object.ErrNotFound) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
+
+	t.Run("returns error when reader fails during save", func(t *testing.T) {
+		fs := newFS(t)
+		failingReader := iotest.ErrReader(errors.New("network stream dropped"))
+
+		err := fs.SaveFile("broken-file", failingReader)
+		if err == nil {
+			t.Fatalf("expected error when reading fails, got nil")
 		}
 	})
 

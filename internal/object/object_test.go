@@ -152,3 +152,19 @@ func TestStore_DownloadClosesFileOnError(t *testing.T) {
 	}
 }
 
+func TestStore_UploadAtomicity(t *testing.T) {
+	// Arrange: Set up our dependencies
+	store, err := object.NewStore(
+		object.WithFileSystem(filesystem.NewInMemory()),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	testKey := "pets/dog-123.jpg"
+	reader := bytes.NewReader(testContent)
+
+}
+
+
