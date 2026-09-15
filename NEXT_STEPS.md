@@ -37,7 +37,7 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
   * Ensure streaming write errors are caught and any leftover staging file is cleaned up via `os.Remove(tempPath)`.
 
 ### True Streaming Downloads (`io.ReadCloser`)
-- [ ] **Avoid buffering in RAM:**
+- [x] **Avoid buffering in RAM:**
   * Upgrade `FileSystem.OpenFile` interface to return `(io.ReadCloser, error)`.
   * Stream `*os.File` directly on disk and use `io.NopCloser` for in-memory byte readers.
 

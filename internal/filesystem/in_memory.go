@@ -27,10 +27,10 @@ func (s *inMemoryFileSystem) SaveFile(path string, data io.Reader) error {
 	return nil
 }
 
-func (s *inMemoryFileSystem) OpenFile(path string) (io.Reader, error) {
+func (s *inMemoryFileSystem) OpenFile(path string) (io.ReadCloser, error) {
 	data, ok := s.savedFiles[path]
 	if !ok {
 		return nil, object.ErrNotFound
 	}
-	return bytes.NewReader(data), nil
+	return io.NopCloser(bytes.NewReader(data)), nil
 }

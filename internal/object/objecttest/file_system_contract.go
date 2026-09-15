@@ -33,6 +33,7 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 		}
 
 		stream, err := fs.OpenFile("file-id")
+		defer stream.Close()
 		if err != nil {
 			t.Fatalf("unexpected error loading: %v", err)
 		}
@@ -60,12 +61,14 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 		}
 
 		stream1, err := fs.OpenFile("file-id-1")
+		defer stream1.Close()
 		if err != nil {
 			t.Fatalf("failed to open path1: %v", err)
 		}
 		bytes1, _ := io.ReadAll(stream1)
 
 		stream2, err := fs.OpenFile("file-id-2")
+		defer stream2.Close()
 		if err != nil {
 			t.Fatalf("failed to open path2: %v", err)
 		}

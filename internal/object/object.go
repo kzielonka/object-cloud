@@ -12,7 +12,7 @@ var StoreError = errors.New("store error")
 // Store defines the public interface for uploading and downloading objects
 type Store interface {
 	Upload(key string, data io.Reader) error
-	Download(key string) (io.Reader, error)
+	Download(key string) (io.ReadCloser, error)
 }
 
 type defaultStore struct {
@@ -45,10 +45,13 @@ func (s *defaultStore) Upload(key string, data io.Reader) error {
 	return nil
 }
 
-func (s *defaultStore) Download(key string) (io.Reader, error) {
+func (s *defaultStore) Download(key string) (io.ReadCloser, error) {
 	path := s.pathFor(key)
 	data, err := s.fs.OpenFile(path)
 	if err != nil {
+		if data != nil {
+  		data.Close()
+		}
 		return nil, StoreError
 	}
 	return data, nil

@@ -32,6 +32,9 @@ func TestStore_UploadAndDownload(t *testing.T) {
 
 	// Act: Execute download
 	downloadData, err := store.Download(testKey)
+	if downloadData != nil {
+  	defer downloadData.Close()
+	}
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -53,7 +56,7 @@ func (fs *fakeFileSystem) SaveFile(path string, data io.Reader) error {
 	return errors.New("save error")
 }
 
-func (fs *fakeFileSystem) OpenFile(path string) (io.Reader, error) {
+func (fs *fakeFileSystem) OpenFile(path string) (io.ReadCloser, error) {
 	return nil, errors.New("open error")
 
 }
@@ -97,3 +100,55 @@ func TestStore_DownloadErrorTranslation(t *testing.T) {
 		t.Errorf("expected StoreError, got %s", err)
 	}
 }
+
+type trackingReadCloser struct {
+	closed bool
+}
+
+func (r *trackingReadCloser) Read(p []byte) (n int, err error) {
+	return 0, io.EOF
+}
+
+func (r *trackingReadCloser) Close() error {
+	r.closed = true
+	return nil
+}
+
+type errorWithFileFileSystem struct {
+	file io.ReadCloser
+	err  error
+}
+
+func (fs *errorWithFileFileSystem) SaveFile(path string, data io.Reader) error {
+	return nil
+}
+
+func (fs *errorWithFileFileSystem) OpenFile(path string) (io.ReadCloser, error) {
+	return fs.file, fs.err
+}
+
+func TestStore_DownloadClosesFileOnError(t *testing.T) {
+	trackingFile := &trackingReadCloser{}
+	fakeFS := &errorWithFileFileSystem{
+		file: trackingFile,
+		err:  errors.New("open error with non-nil file"),
+	}
+
+	store, err := object.NewStore(
+		object.WithFileSystem(fakeFS),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, err = store.Download("pets/dog-123.jpg")
+	if !errors.Is(err, object.StoreError) {
+		t.Fatalf("expected StoreError, got %v", err)
+	}
+
+	if !trackingFile.closed {
+		t.Errorf("expected file to be closed when OpenFile returns an error with non-nil data")
+	}
+}
+

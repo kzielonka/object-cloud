@@ -1,7 +1,6 @@
 package filesystem
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -29,7 +28,7 @@ func (s *diskFileSystem) SaveFile(path string, data io.Reader) error {
 	return nil
 }
 
-func (s *diskFileSystem) OpenFile(path string) (io.Reader, error) {
+func (s *diskFileSystem) OpenFile(path string) (io.ReadCloser, error) {
 	fullPath := filepath.Join(s.dirPath, path)
 	file, err := os.Open(fullPath)
 	if err != nil {
@@ -38,10 +37,6 @@ func (s *diskFileSystem) OpenFile(path string) (io.Reader, error) {
 		}
 		return nil, err
 	}
-	defer file.Close()
 
-	data, _ := io.ReadAll(file)
-
-	// it should return reader and close method
-	return bytes.NewReader(data), nil
+	return file, nil
 }
