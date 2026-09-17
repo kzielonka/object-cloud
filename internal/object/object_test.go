@@ -33,7 +33,7 @@ func TestStore_UploadAndDownload(t *testing.T) {
 	// Act: Execute download
 	downloadData, err := store.Download(testKey)
 	if downloadData != nil {
-  	defer downloadData.Close()
+		defer downloadData.Close()
 	}
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
