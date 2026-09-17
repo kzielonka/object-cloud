@@ -1,3 +1,5 @@
+// Package object provides domain-level abstractions and primitives
+// for uploading and downloading objects backed by a pluggable FileSystem.
 package object
 
 import (
@@ -7,11 +9,18 @@ import (
 	"path/filepath"
 )
 
+// StoreError indicates an error occurred during a store operation such as
+// uploading, downloading, or reading/writing to the underlying filesystem.
 var StoreError = errors.New("store error")
 
-// Store defines the public interface for uploading and downloading objects
+// Store defines the public interface for uploading and downloading objects.
+// Keys are sanitized and hashed before being stored in the underlying FileSystem.
 type Store interface {
+	// Upload streams data into storage under the given logical key.
 	Upload(key string, data io.Reader) error
+
+	// Download returns a stream of the object stored under key.
+	// The caller is responsible for closing the returned io.ReadCloser.
 	Download(key string) (io.ReadCloser, error)
 }
 
@@ -21,6 +30,8 @@ type defaultStore struct {
 	dir    string
 }
 
+// NewStore creates a new Store configured with the provided functional options.
+// Both WithFileSystem and WithDir must be specified.
 func NewStore(opts ...Option) (Store, error) {
 	s := &defaultStore{}
 	s.hasher = NewSHA256KeyHasher()
@@ -50,7 +61,7 @@ func (s *defaultStore) Download(key string) (io.ReadCloser, error) {
 	data, err := s.fs.OpenFile(path)
 	if err != nil {
 		if data != nil {
-  		data.Close()
+			data.Close()
 		}
 		return nil, StoreError
 	}
@@ -61,14 +72,18 @@ func (s *defaultStore) pathFor(key string) string {
 	return filepath.Join(s.dir, hex.EncodeToString(s.hasher.Hash(key)))
 }
 
+// Option configures a Store instance.
 type Option func(*defaultStore)
 
+// WithFileSystem configures the underlying FileSystem adapter used by the Store.
 func WithFileSystem(fs FileSystem) Option {
 	return func(s *defaultStore) {
 		s.fs = fs
 	}
 }
 
+// WithHasher configures a custom KeyHasher used to hash logical keys into safe filenames.
+// If not specified, NewStore defaults to using a SHA-256 key hasher.
 func WithHasher(hasher KeyHasher) Option {
 	return func(s *defaultStore) {
 		if hasher != nil {
@@ -77,8 +92,10 @@ func WithHasher(hasher KeyHasher) Option {
 	}
 }
 
+// WithDir sets the base storage directory for the Store.
 func WithDir(dir string) Option {
 	return func(s *defaultStore) {
 		s.dir = dir
 	}
 }
+
