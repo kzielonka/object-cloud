@@ -3,6 +3,7 @@
 package object
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -48,8 +49,16 @@ func NewStore(opts ...Option) (Store, error) {
 }
 
 func (s *defaultStore) Upload(key string, data io.Reader) error {
+	tmpPath := s.tmpPathFor(key)
+	defer s.fs.DeleteFile(tmpPath)
+
+	err := s.fs.SaveFile(tmpPath, data)
+	if err != nil {
+		return StoreError
+	}
+
 	path := s.pathFor(key)
-	err := s.fs.SaveFile(path, data)
+	err = s.fs.RenameFile(tmpPath, path)
 	if err != nil {
 		return StoreError
 	}
@@ -63,6 +72,9 @@ func (s *defaultStore) Download(key string) (io.ReadCloser, error) {
 		if data != nil {
 			data.Close()
 		}
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, StoreError
 	}
 	return data, nil
@@ -70,6 +82,17 @@ func (s *defaultStore) Download(key string) (io.ReadCloser, error) {
 
 func (s *defaultStore) pathFor(key string) string {
 	return filepath.Join(s.dir, hex.EncodeToString(s.hasher.Hash(key)))
+}
+
+// tmpPathFor generates a unique temporary path for staging an upload.
+// Note: Staging files are currently co-located in s.dir (with a .tmp suffix)
+// to guarantee atomic renames across all filesystems and avoid missing directory errors.
+// In future versions, we may want a dedicated staging directory (e.g. s.dir/tmp) so that
+// any lingering temp files from sudden process crashes can be easily cleaned up in bulk.
+func (s *defaultStore) tmpPathFor(key string) string {
+	var suffix [8]byte
+	_, _ = rand.Read(suffix[:])
+	return s.pathFor(key) + ".tmp." + hex.EncodeToString(suffix[:])
 }
 
 // Option configures a Store instance.
@@ -98,4 +121,3 @@ func WithDir(dir string) Option {
 		s.dir = dir
 	}
 }
-

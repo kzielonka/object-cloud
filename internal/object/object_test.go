@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/kzielonka/object-cloud/internal/filesystem"
 	"github.com/kzielonka/object-cloud/internal/object"
@@ -47,6 +49,44 @@ func TestStore_UploadAndDownload(t *testing.T) {
 
 	if !bytes.Equal(data, testContent) {
 		t.Errorf("expected data %q, got %q", testContent, data)
+	}
+}
+
+func TestStore_FailedUploadAtomicity(t *testing.T) {
+	// Arrange: Set up our dependencies
+	store, err := object.NewStore(
+		object.WithFileSystem(filesystem.NewInMemory()),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	testKey := "pets/dog-123.jpg"
+	reader := io.MultiReader(
+		strings.NewReader("some data"),
+		iotest.ErrReader(errors.New("some error")),
+	)
+
+	// Act: Execute upload
+	err = store.Upload(testKey, reader)
+	if err == nil {
+		t.Fatalf("expected error when upload fails, got nil")
+	}
+	if !errors.Is(err, object.StoreError) {
+		t.Fatalf("expected StoreError, got %v", err)
+	}
+
+	// Act: Execute download
+	downloadData, err := store.Download(testKey)
+	if downloadData != nil {
+		defer downloadData.Close()
+	}
+	if err == nil {
+		t.Fatalf("expected error when download fails, got nil")
+	}
+	if !errors.Is(err, object.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for aborted upload %q, got %v", testKey, err)
 	}
 }
 

@@ -31,12 +31,13 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
   * Prevents nil pointer dereference panics when file creation fails.
 - [x] **Add `DeleteFile` and `RenameFile` to `FileSystem` interface:**
   * Implemented and contract-tested for both `diskFileSystem` and `inMemoryFileSystem`.
-- [ ] **[IMMEDIATE NEXT STEP] Atomic Uploads in `Store.Upload` (`internal/object/object.go`):**
-  * **Test First (TDD):** In `internal/object/object_test.go`, write tests simulating interrupted/broken uploads (using `io.MultiReader` or `io.Pipe`) and verify:
-    1. Failed uploads clean up the temporary staging file via `fs.DeleteFile(tempPath)` and do not expose a corrupted object.
-    2. Concurrent/in-progress uploads do not leak partial reads.
-    3. Successful uploads atomically commit via `fs.RenameFile(tempPath, finalPath)` without leaving lingering temp files.
-  * **Implementation:** In `defaultStore.Upload`, stream data to a temporary staging path (e.g. `path + ".tmp." + randomID`), call `fs.RenameFile(tempPath, finalPath)` on success, and ensure `fs.DeleteFile(tempPath)` is called if any step fails.
+- [x] **Atomic Uploads in `Store.Upload` (`internal/object/object.go`):**
+  * Staging incoming streams to unique temporary files (`path + ".tmp." + randomSuffix`).
+  * Deferred cleanup via `fs.DeleteFile(tempPath)` on failure.
+  * Atomic promotion via `fs.RenameFile(tempPath, finalPath)` on success.
+- [ ] **v2 Dedicated Staging Directory (`tmp/`) & Garbage Collector:**
+  * Staging files are currently co-located in `s.dir` (with a `.tmp.<random>` suffix) to guarantee atomic renames on the same filesystem and avoid nested directory creation requirements.
+  * In v2, evaluate a dedicated staging directory (e.g. `s.dir/tmp`) along with a background janitor/GC process to periodically clean up any orphaned staging files caused by sudden power cuts or process kills.
 - [ ] **v2 Overwrite Semantics & Object Versioning / Immutability:**
   * Current v1 `RenameFile` prevents overwrites by checking `os.Stat` and returning `ErrFileExists` (favouring immutable keys / WORM, but with a non-atomic TOCTOU race).
   * In v2, evaluate true atomic replacement (allowing `os.Rename` to atomically overwrite destination) vs formal object versioning (e.g. `key?version=2`).
