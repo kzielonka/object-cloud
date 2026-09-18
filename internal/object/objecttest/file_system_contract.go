@@ -146,7 +146,6 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 			t.Fatalf("unexpected error saving: %v", err)
 		}
 
-
 		err = fs.SaveFile(destFile, strings.NewReader("some-data"))
 		if err != nil {
 			t.Fatalf("unexpected error saving: %v", err)
@@ -198,6 +197,29 @@ func RunFileSystemContract(t *testing.T, newFS FileSystemFactory) {
 		}
 		if !errors.Is(err, object.ErrNotFound) {
 			t.Errorf("expected ErrNotFound for original file after rename, got %v", err)
+		}
+	})
+
+	t.Run("returns error saving to non-existent directory until created", func(t *testing.T) {
+		fs := newFS(t)
+		dir := "nested-dir"
+		filePath := dir + "/file.txt"
+
+		// 1. Fails before directory exists
+		err := fs.SaveFile(filePath, strings.NewReader("hello"))
+		if err == nil {
+			t.Fatalf("expected error saving before directory is created, got nil")
+		}
+
+		// 2. Create directory
+		if err := fs.CreateDir(dir); err != nil {
+			t.Fatalf("unexpected error creating directory: %v", err)
+		}
+
+		// 3. Succeeds after directory exists
+		err = fs.SaveFile(filePath, strings.NewReader("hello"))
+		if err != nil {
+			t.Fatalf("expected successful save after directory creation, got: %v", err)
 		}
 	})
 }

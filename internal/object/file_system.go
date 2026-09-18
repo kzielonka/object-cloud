@@ -13,4 +13,5 @@ type FileSystem interface {
 	OpenFile(path string) (io.ReadCloser, error)
 	DeleteFile(path string) error
 	RenameFile(oldPath string, newPath string) error
+	CreateDir(path string) error
 }

@@ -54,13 +54,23 @@ func (s *defaultStore) Upload(key string, data io.Reader) error {
 
 	err := s.fs.SaveFile(tmpPath, data)
 	if err != nil {
-		return StoreError
+		if err := s.fs.CreateDir(s.tmpPath()); err != nil {
+			return StoreError
+		}
+		if err := s.fs.SaveFile(tmpPath, data); err != nil {
+			return StoreError
+		}
 	}
 
 	path := s.pathFor(key)
 	err = s.fs.RenameFile(tmpPath, path)
 	if err != nil {
-		return StoreError
+		if err := s.fs.CreateDir(s.dataPath()); err != nil {
+			return StoreError
+		}
+		if err := s.fs.RenameFile(tmpPath, path); err != nil {
+			return StoreError
+		}
 	}
 	return nil
 }
@@ -80,19 +90,23 @@ func (s *defaultStore) Download(key string) (io.ReadCloser, error) {
 	return data, nil
 }
 
-func (s *defaultStore) pathFor(key string) string {
-	return filepath.Join(s.dir, hex.EncodeToString(s.hasher.Hash(key)))
+func (s *defaultStore) dataPath() string {
+	return filepath.Join(s.dir, "data")
 }
 
-// tmpPathFor generates a unique temporary path for staging an upload.
-// Note: Staging files are currently co-located in s.dir (with a .tmp suffix)
-// to guarantee atomic renames across all filesystems and avoid missing directory errors.
-// In future versions, we may want a dedicated staging directory (e.g. s.dir/tmp) so that
-// any lingering temp files from sudden process crashes can be easily cleaned up in bulk.
+func (s *defaultStore) tmpPath() string {
+	return filepath.Join(s.dir, "tmp")
+}
+
+func (s *defaultStore) pathFor(key string) string {
+	return filepath.Join(s.dataPath(), hex.EncodeToString(s.hasher.Hash(key)))
+}
+
+// tmpPathFor generates a unique temporary path for staging an upload inside s.tmpPath().
 func (s *defaultStore) tmpPathFor(key string) string {
 	var suffix [8]byte
 	_, _ = rand.Read(suffix[:])
-	return s.pathFor(key) + ".tmp." + hex.EncodeToString(suffix[:])
+	return filepath.Join(s.tmpPath(), hex.EncodeToString(s.hasher.Hash(key))+"."+hex.EncodeToString(suffix[:]))
 }
 
 // Option configures a Store instance.

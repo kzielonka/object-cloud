@@ -78,3 +78,8 @@ func (s *diskFileSystem) RenameFile(oldPath string, newPath string) error {
 	}
 	return nil
 }
+
+func (s *diskFileSystem) CreateDir(path string) error {
+	fullPath := filepath.Join(s.dirPath, path)
+	return os.MkdirAll(fullPath, 0755)
+}

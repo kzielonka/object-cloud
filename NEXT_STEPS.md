@@ -35,9 +35,13 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
   * Staging incoming streams to unique temporary files (`path + ".tmp." + randomSuffix`).
   * Deferred cleanup via `fs.DeleteFile(tempPath)` on failure.
   * Atomic promotion via `fs.RenameFile(tempPath, finalPath)` on success.
-- [ ] **v2 Dedicated Staging Directory (`tmp/`) & Garbage Collector:**
-  * Staging files are currently co-located in `s.dir` (with a `.tmp.<random>` suffix) to guarantee atomic renames on the same filesystem and avoid nested directory creation requirements.
-  * In v2, evaluate a dedicated staging directory (e.g. `s.dir/tmp`) along with a background janitor/GC process to periodically clean up any orphaned staging files caused by sudden power cuts or process kills.
+- [x] **Dedicated Directory Separation (`tmp/` & `data/`) with Lazy Creation:**
+  * Separates staging files (`s.dir/tmp/`) from permanent storage (`s.dir/data/`).
+  * Added `CreateDir(path string) error` to `FileSystem` interface and contract tests.
+  * Staging files live in `tmp/` with unique random suffixes and are atomically promoted to `data/`.
+  * Directories are created lazily on demand when saving/renaming fails, avoiding redundant filesystem calls on every upload.
+- [ ] **v2 Orphan Staging File Janitor / Garbage Collector:**
+  * Add a background janitor or startup cleanup pass to purge orphaned staging files in `s.dir/tmp` left behind by ungraceful process termination or sudden power loss.
 - [ ] **v2 Overwrite Semantics & Object Versioning / Immutability:**
   * Current v1 `RenameFile` prevents overwrites by checking `os.Stat` and returning `ErrFileExists` (favouring immutable keys / WORM, but with a non-atomic TOCTOU race).
   * In v2, evaluate true atomic replacement (allowing `os.Rename` to atomically overwrite destination) vs formal object versioning (e.g. `key?version=2`).

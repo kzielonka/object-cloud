@@ -108,6 +108,10 @@ func (fs *fakeFileSystem) RenameFile(oldPath string, newPath string) error {
 	return errors.New("rename error")
 }
 
+func (fs *fakeFileSystem) CreateDir(path string) error {
+	return errors.New("create dir error")
+}
+
 func TestStore_UploadErrorTranslation(t *testing.T) {
 	// Arrange: Set up our dependencies
 	store, err := object.NewStore(
@@ -182,6 +186,10 @@ func (fs *errorWithFileFileSystem) RenameFile(oldPath string, newPath string) er
 	return nil
 }
 
+func (fs *errorWithFileFileSystem) CreateDir(path string) error {
+	return nil
+}
+
 func TestStore_DownloadClosesFileOnError(t *testing.T) {
 	trackingFile := &trackingReadCloser{}
 	fakeFS := &errorWithFileFileSystem{
@@ -204,5 +212,40 @@ func TestStore_DownloadClosesFileOnError(t *testing.T) {
 
 	if !trackingFile.closed {
 		t.Errorf("expected file to be closed when OpenFile returns an error with non-nil data")
+	}
+}
+
+func TestStore_UploadCreatesDirectoriesLazily(t *testing.T) {
+	fs := filesystem.NewInMemory()
+	store, err := object.NewStore(
+		object.WithFileSystem(fs),
+		object.WithDir("/test"),
+	)
+	if err != nil {
+		t.Fatalf("expected store, got %v", err)
+	}
+	if fs.HasDirectory("/test/tmp") {
+		t.Fatalf("expected no tmp directory yet")
+	}
+	if fs.HasDirectory("/test/data") {
+		t.Fatalf("expected no data directory yet")
+	}
+
+	// First upload: triggers lazy directory creation
+	err = store.Upload("test-key", strings.NewReader("some data"))
+	if err != nil {
+		t.Fatalf("expected successful upload, got %v", err)
+	}
+	if !fs.HasDirectory("/test/tmp") {
+		t.Fatalf("expected tmp directory to be created")
+	}
+	if !fs.HasDirectory("/test/data") {
+		t.Fatalf("expected data directory to be created")
+	}
+
+	// Subsequent upload: succeeds without issue when directories already exist
+	err = store.Upload("test-key-2", strings.NewReader("other data"))
+	if err != nil {
+		t.Fatalf("expected subsequent upload to succeed, got %v", err)
 	}
 }
