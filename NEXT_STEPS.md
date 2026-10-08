@@ -62,14 +62,20 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
 
 ## 4. HTTP API & Server Layer (`internal/server`)
 
-- [ ] **Upload Endpoint (`PUT /objects/{key...}`):**
+- [x] **Upload Endpoint (`PUT /objects/{key...}`):**
   * Stream request body directly into `store.Upload(key, r.Body)`.
-  * Return `201 Created` with `ETag`.
-- [ ] **Download Endpoint (`GET /objects/{key...}`):**
+  * Return `201 Created`.
+- [x] **Download Endpoint (`GET /objects/{key...}`):**
   * Stream stored object to `w` via `io.Copy(w, stream)`.
   * Return `404 Not Found` when `errors.Is(err, object.ErrNotFound)`.
-- [ ] **HTTP Testing:**
-  * Use Go's built-in `net/http/httptest` package (`httptest.NewServer` and `httptest.ResponseRecorder`) for full endpoint testing.
+- [x] **HTTP Testing:**
+  * Use Go's built-in `net/http/httptest` package (`httptest.NewRequest` and `httptest.NewRecorder`) for fast, in-memory endpoint testing.
+- [ ] **HMAC Pre-signed URL Signing & Verification (`internal/auth` or `internal/server`):**
+  * Generate and verify query-based signatures (`?expires=...&signature=...`).
+  * Sign request method + path + expiration timestamp using HMAC-SHA256.
+  * Provide middleware rejecting expired or invalid requests with `403 Forbidden`.
+- [ ] **HTTP `ETag` Headers:**
+  * Return SHA-256 checksums in `ETag` response headers so HTTP clients/browsers can verify transfer integrity.
 
 ---
 
