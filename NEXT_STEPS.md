@@ -70,10 +70,22 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
   * Return `404 Not Found` when `errors.Is(err, object.ErrNotFound)`.
 - [x] **HTTP Testing:**
   * Use Go's built-in `net/http/httptest` package (`httptest.NewRequest` and `httptest.NewRecorder`) for fast, in-memory endpoint testing.
-- [ ] **HMAC Pre-signed URL Signing & Verification (`internal/auth` or `internal/server`):**
-  * Generate and verify query-based signatures (`?expires=...&signature=...`).
-  * Sign request method + path + expiration timestamp using HMAC-SHA256.
-  * Provide middleware rejecting expired or invalid requests with `403 Forbidden`.
+- [ ] **Policy-Based Token Authentication & Pre-signed URLs (`internal/auth`):**
+  - [x] **Phase 1: Domain Policy & JSON Serialization:**
+    * Defined `uploadPolicy` and `materializedUploadPolicy` with struct tags (`json:"key"`, `json:"expires_at"`).
+    * Implemented functional options pattern (`ExpiresInSec`).
+    * Implemented JSON serialization via `Issue(secret, now)` and deserialization via `Decrypt(secret)`.
+    * Black-box testing in `internal/auth/auth_test.go`.
+  - [ ] **Phase 2: Cryptographic Tamper Protection & Verification:**
+    * Apply options loop in `NewUploadPolicy`.
+    * Implement HMAC-SHA256 signature envelope over serialized policy (`Payload.Signature` in Base64URL).
+    * Check expiration dynamically (`now.Before(decoded.ExpiresAt)`).
+    * Return explicit Go errors (`ErrExpired`, `ErrInvalidSignature`, `ErrMalformedToken`).
+    * Add test cases for expired tokens, altered keys/payloads, and wrong secrets.
+  - [ ] **Phase 3: HTTP Server Integration (`internal/server`):**
+    * Support dual transport: `Authorization: Bearer <token>` header (for uploads) and `?token=...` query param (for downloads).
+    * Validate that token claims (`Key`, `Action`) match incoming HTTP request.
+    * Return `403 Forbidden` on invalid/expired signatures and `413 Payload Too Large` when exceeding size limits.
 - [ ] **HTTP `ETag` Headers:**
   * Return SHA-256 checksums in `ETag` response headers so HTTP clients/browsers can verify transfer integrity.
 

@@ -22,15 +22,92 @@ In Jest/TypeScript, test runners match glob patterns like `**/*.test.ts`, `**/*.
 In TypeScript, multiple files in the same folder can export anything independently. In Go:
 
 1. **One package per folder:** Every non-test file in a directory **must** declare the same package name (e.g., `package object`).
-2. **The `_test` package exception:** Files ending in `_test.go` can declare `package object_test` (for external black-box testing) or `package object` (for internal white-box testing).
-3. **Never name a file `_tests.go`:** If you put `package object_test` in a file named `storage_contract_tests.go`, Go treats it as production code and complains:
+2. **Never name a file `_tests.go`:** If you put `package object_test` in a file named `storage_contract_tests.go`, Go treats it as production code and complains:
    ```text
    found packages object (storage.go) and object_test (storage_contract_tests.go) in ...
    ```
+3. **The `_test` package exception (Black-Box vs White-Box Testing):**
+   Within any test file (`*_test.go`), Go allows **only two choices** for the package name:
+
+| Testing Style | Package Declaration | What it can access | When to use |
+| :--- | :--- | :--- | :--- |
+| **White-Box** (Internal) | `package auth` (same as directory) | **Everything:** both exported (`Public`) and unexported (`private`) structs, fields, functions | Testing complex unexported logic, mocking internal state, testing private helpers |
+| **Black-Box** (External) | `package auth_test` (`<pkg>_test`) | **Public API only:** must import the package (`import ".../internal/auth"`), can only see exported symbols | Testing the package from a real consumer's viewpoint; **prevents circular dependencies** |
 
 ---
 
-## 3. Reusable Contract / Compliance Tests Pattern
+## 3. Visibility & Type Syntax (Public vs Private)
+
+In Go, there are no `public` or `private` keywords. Visibility is strictly controlled by **capitalization**:
+
+| Concept | Unexported (Private) | Exported (Public) |
+| :--- | :--- | :--- |
+| **Identifiers** | Lowercase first letter: `uploadPolicy`, `key` | Uppercase first letter: `UploadPolicy`, `Key` |
+| **Scope** | Visible only inside the same package | Accessible to any importing package |
+| **JSON Serialization** | `json.Marshal` ignores lowercase fields! | Must be uppercase to be serialized to JSON |
+
+### Struct Declaration & Instantiation Syntax:
+* **Declare a struct:** use `type Name struct`, **never** `struct Name` (which is a syntax error).
+* **Return pointer:** Instantiate and return address directly without temporary variables:
+
+```go
+// 1. Declaration
+type UploadPolicy struct {
+    Key string `json:"key"`
+}
+
+// 2. Constructor returning pointer
+func NewUploadPolicy(key string) *UploadPolicy {
+    return &UploadPolicy{
+        Key: key,
+    }
+}
+```
+
+### Struct Tags (Go's Metadata Annotations):
+Struct tags are compile-time string metadata in backticks (`` `key:"value"` ``) attached to struct fields.
+
+* **History & Philosophy:** Present since Go's 2009 release (and Go 1.0). The creators (Rob Pike, Ken Thompson) deliberately avoided heavy annotation/macro frameworks (like in Java/Spring). They chose the simplest possible compromise: raw string metadata attached to fields, inspected at runtime via reflection (`reflect.StructTag`).
+* **Not Just for JSON:** It is a general-purpose language feature:
+  * `json:"key"` &rarr; `encoding/json`
+  * `db:"col_name"` / `gorm:"primaryKey"` &rarr; Database ORMs
+  * `validate:"required,email"` &rarr; Struct validation libraries
+  * `env:"PORT"` &rarr; Environment variable loaders
+* **Combining tags:** Multiple packages can read the same field:
+  ```go
+  type UploadPolicy struct {
+      Key       string `json:"key" db:"object_key" validate:"required"`
+      ExpiresAt int64  `json:"expires_at,omitempty"`
+      Secret    string `json:"-"` // "-" means completely ignore / hide from JSON
+  }
+  ```
+* **Golden Rule for JSON:** The field **must start with a Capital letter (exported)**, or `json.Marshal` will silently ignore it regardless of any tags!
+
+### Functional Options Pattern (The Go Alternative to OOP Builders):
+Instead of Java-style fluent builders (`new Builder().WithX().Build()`), Go uses variadic closures (`opts ...Option`) for constructors with optional configuration:
+
+```go
+type UploadOption func(*UploadPolicy)
+
+func WithMaxContentLength(bytes int64) UploadOption {
+    return func(p *UploadPolicy) {
+        p.MaxContentLength = bytes
+    }
+}
+
+// Usage: NewUploadPolicy("avatar.png", WithMaxContentLength(5*1024*1024))
+func NewUploadPolicy(key string, opts ...UploadOption) *UploadPolicy {
+    p := &UploadPolicy{Key: key}
+    for _, opt := range opts {
+        opt(p)
+    }
+    return p
+}
+```
+
+---
+
+## 4. Reusable Contract / Compliance Tests Pattern
 
 ### TypeScript / Jest Pattern:
 ```typescript
@@ -83,7 +160,7 @@ func TestInMemoryFileSystem_Contract(t *testing.T) {
 
 ---
 
-## 4. Errors & Comparisons
+## 5. Errors & Comparisons
 
 | Action | TypeScript | Go |
 | :--- | :--- | :--- |
@@ -94,7 +171,7 @@ func TestInMemoryFileSystem_Contract(t *testing.T) {
 
 ---
 
-## 5. Quick Syntax Differences
+## 6. Quick Syntax Differences
 
 * **No semicolons:** Do not put `;` at the end of lines.
 * **No colons in parameter lists:** `func(path string)` (NOT `path: string`).
