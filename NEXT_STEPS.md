@@ -77,11 +77,14 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
     * Implemented JSON serialization via `Issue(secret, now)` and deserialization via `Decrypt(secret)`.
     * Black-box testing in `internal/auth/auth_test.go`.
   - [ ] **Phase 2: Cryptographic Tamper Protection & Verification:**
-    * Apply options loop in `NewUploadPolicy`.
-    * Implement HMAC-SHA256 signature envelope over serialized policy (`Payload.Signature` in Base64URL).
-    * Check expiration dynamically (`now.Before(decoded.ExpiresAt)`).
-    * Return explicit Go errors (`ErrExpired`, `ErrInvalidSignature`, `ErrMalformedToken`).
-    * Add test cases for expired tokens, altered keys/payloads, and wrong secrets.
+    * [x] Applied options loop with default expiration in `NewUploadPolicy`.
+    * [x] Implemented HMAC-SHA256 signing and constant-time verification via `hmac.Equal`.
+    * [x] Added unit tests for invalid secrets (`TestPresignedUrl_FailsOnInvalidSecret`) and tampered payloads (`TestPresignedUrl_FailsOnTemperedKey`).
+    * [ ] **Next:** Add missing expiration test (`TestPresignedUrl_FailsOnExpiredToken`) and enforce `now.Before(decoded.ExpiresAt)` check in `Decrypt`/`Verify`.
+    * [ ] **Next:** Refactor token format to JWT-style `base64url(payload).base64url(signature)`:
+      - Signs raw payload bytes directly without re-marshaling to avoid JSON canonicalization / key-order discrepancies.
+      - Compact, URL-safe string representation.
+    * [ ] Return explicit Go errors (`ErrExpired`, `ErrInvalidSignature`, `ErrMalformedToken`).
   - [ ] **Phase 3: HTTP Server Integration (`internal/server`):**
     * Support dual transport: `Authorization: Bearer <token>` header (for uploads) and `?token=...` query param (for downloads).
     * Validate that token claims (`Key`, `Action`) match incoming HTTP request.

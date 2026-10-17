@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"time"
@@ -11,15 +13,30 @@ type uploadPolicy struct {
 	expiresInSec int
 }
 
+type signedUploadPolicy struct {
+	uploadPolicy
+	signature []byte
+}
+
 type materializedUploadPolicy struct {
 	Key       string    `json:"key"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+type materializedSignedUploadPolicy struct {
+	materializedUploadPolicy
+	Signature []byte `json:"signature"`
+}
+
 func NewUploadPolicy(key string, opts ...Option) *uploadPolicy {
-	return &uploadPolicy{
-		key: key,
+	policy := &uploadPolicy{
+		key:          key,
+		expiresInSec: 5 * 60,
 	}
+	for _, opt := range opts {
+		opt(policy)
+	}
+	return policy
 }
 
 type Option func(*uploadPolicy)
@@ -30,16 +47,36 @@ func ExpiresInSec(time int) Option {
 	}
 }
 
-func (up *uploadPolicy) Issue(secret string, now time.Time) ([]byte, error) {
-	materialized_up := materializedUploadPolicy{
-		Key:       up.key,
-		ExpiresAt: now.Add(time.Duration(up.expiresInSec) * time.Second),
+func generateSignature(secret string, key string, expiresAt time.Time) ([]byte, error) {
+	materializedUp := materializedUploadPolicy{
+		Key:       key,
+		ExpiresAt: expiresAt,
 	}
-	json, err := json.Marshal(materialized_up)
+	json1, err := json.Marshal(materializedUp)
 	if err != nil {
-		return nil, errors.New("wtf")
+		return nil, errors.New("invalid json")
 	}
-	return json, nil
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(json1)
+	return mac.Sum(nil), nil
+}
+
+func (up *uploadPolicy) Issue(secret string, now time.Time) ([]byte, error) {
+	expiresAt := now.Add(time.Duration(up.expiresInSec) * time.Second)
+	signature, err := generateSignature(secret, up.key, expiresAt)
+	if err != nil {
+		return nil, errors.New("can not generate signature")
+	}
+	materializedSup := materializedSignedUploadPolicy{
+		Key:       up.key,
+		ExpiresAt: expiresAt,
+		Signature: signature,
+	}
+	json2, err := json.Marshal(materializedSup)
+	if err != nil {
+		return nil, errors.New("invalid signed json")
+	}
+	return json2, nil
 }
 
 type uploadToken struct {
@@ -59,7 +96,7 @@ type decryptedToken struct {
 }
 
 func (t *uploadToken) Decrypt(secret string) *decryptedToken {
-	var decodedToken = materializedUploadPolicy{}
+	var decodedToken = materializedSignedUploadPolicy{}
 	err := json.Unmarshal(t.token, &decodedToken)
 	if err != nil {
 		return &decryptedToken{
@@ -67,7 +104,14 @@ func (t *uploadToken) Decrypt(secret string) *decryptedToken {
 			key:       "",
 			expiresAt: time.Now(),
 		}
-
+	}
+	signature, err := generateSignature(secret, decodedToken.Key, decodedToken.ExpiresAt)
+	if err != nil || !hmac.Equal(signature, decodedToken.Signature) {
+		return &decryptedToken{
+			isValid:   false,
+			key:       decodedToken.Key,
+			expiresAt: decodedToken.ExpiresAt,
+		}
 	}
 	return &decryptedToken{
 		isValid:   true,
