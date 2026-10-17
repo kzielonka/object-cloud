@@ -177,3 +177,77 @@ func TestInMemoryFileSystem_Contract(t *testing.T) {
 * **No colons in parameter lists:** `func(path string)` (NOT `path: string`).
 * **Struct initialization:** `&MyStruct{Field: val}` with curly braces `{}` (NOT `new MyStruct()` or `MyStruct()`).
 * **Byte comparison:** `bytes.Equal(a, b)` instead of converting `string(a) == string(b)`.
+
+---
+
+## 7. Advanced Go Patterns & Security Best Practices
+
+### 1. Constant-Time Comparisons for Crypto (Timing Attacks):
+Standard comparisons (`bytes.Equal(a, b)` or `str1 == str2`) **early-exit** on the very first mismatched byte. An attacker can measure request latency down to nanoseconds to guess signatures or tokens byte-by-byte (a **timing attack**).
+
+* **The Rule:** Always use **`crypto/hmac.Equal(mac1, mac2)`** or **`crypto/subtle.ConstantTimeCompare(x, y)`**.
+* **How it works:** It always compares every single byte in the buffer, executing in constant time regardless of where the mismatch occurs.
+
+### 2. Cryptographic Signatures: The "Sign Raw Bytes" Rule
+* **The Vulnerability (JSON Malleability):** Two different JSON strings can decode to the exact same Go struct (due to key ordering, whitespace, or number formats). If you re-marshal JSON before verification, subtle canonicalization differences can break signatures or expose parser differentials.
+* **The Best Practice:** Always sign the **exact raw incoming bytes**:
+  $$\text{Token} = \text{Base64URL}(\text{rawPayloadBytes}) \ . \ \text{Base64URL}(\text{HMAC}(\text{secret}, \text{rawPayloadBytes}))$$
+  1. Split on `.`.
+  2. Verify HMAC directly against `rawPayloadBytes` using `hmac.Equal`.
+  3. Only unmarshal into a Go struct **after** cryptographic verification succeeds.
+
+### 3. Interface Design: "Accept Interfaces, Return Concrete Structs"
+* **Return concrete types:** Constructors (`New...`) should return concrete structs (`*Store`, `*UploadPolicy`), giving callers the full API without premature abstraction.
+* **Define interfaces at the consumer:** Instead of creating large producer interfaces (`IStore`), consumers define small (1–2 method) interfaces locally where needed:
+  ```go
+  // In internal/server/server.go
+  type Downloader interface {
+      Download(key string) (io.ReadCloser, error)
+  }
+  ```
+  Because Go uses implicit/structural typing, any struct with matching methods automatically satisfies `Downloader`.
+
+### 4. Method Receivers: Value `(t Type)` vs Pointer `(t *Type)`:
+
+| Consideration | Pointer Receiver `(t *Type)` | Value Receiver `(t Type)` |
+| :--- | :--- | :--- |
+| **Mutation** | Modifies struct fields | Read-only copy |
+| **Concurrency** | Struct contains `sync.Mutex` (**never copy a mutex!**) | No synchronization primitives inside |
+| **Performance / GC** | Large structs (avoids copying bytes) | Small data structs (stays on CPU stack, avoids heap allocation) |
+| **Consistency** | If *any* method needs a pointer receiver, use pointer receivers for **all** methods on that type. | |
+
+### 5. Advanced Error Architecture: Sentinel Errors vs Custom Error Types:
+* **Sentinel Errors (`errors.Is`):** For simple status/branching decisions without metadata:
+  ```go
+  var ErrInvalidSignature = errors.New("invalid signature")
+  if errors.Is(err, auth.ErrInvalidSignature) { ... }
+  ```
+* **Custom Error Types (`errors.As`):** When the caller needs programmatic access to error metadata:
+  ```go
+  type ExpiredError struct {
+      ExpiredAt time.Time
+  }
+  func (e *ExpiredError) Error() string {
+      return fmt.Sprintf("token expired at %s", e.ExpiredAt)
+  }
+
+  // Caller extraction:
+  var expErr *auth.ExpiredError
+  if errors.As(err, &expErr) {
+      fmt.Println("Expired at:", expErr.ExpiredAt)
+  }
+  ```
+
+### 6. The `defer` Trap in Loops:
+`defer` executes when the **enclosing function returns**, **not** when a loop iteration finishes. Running `defer file.Close()` inside a loop of 10,000 files will leak open file descriptors until the entire function exits.
+
+* **The Fix:** Wrap the loop body in an anonymous closure so `defer` fires on each iteration:
+  ```go
+  for _, path := range files {
+      func() {
+          f, _ := os.Open(path)
+          defer f.Close() // runs at the end of each iteration!
+          // process...
+      }()
+  }
+  ```
