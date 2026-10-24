@@ -80,9 +80,12 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
     * [x] Applied options loop with default expiration in `NewUploadPolicy`.
     * [x] Implemented HMAC-SHA256 signing and constant-time verification via `hmac.Equal`.
     * [x] Enforced token time window verification (`issuedAt <= atTime <= expiresAt`) and added expiration unit tests (`TestPresignedUrl_FailsWhenExpired`).
-    * [ ] **Next:** Refactor token format to JWT-style `base64url(payload).base64url(signature)`:
-      - Signs raw payload bytes directly without re-marshaling to avoid JSON canonicalization / key-order discrepancies.
-      - Compact, URL-safe string representation.
+    * [ ] **Next (Tomorrow's Goal):** Refactor token format to JWT-style `base64url(payload).base64url(signature)`:
+      - Use `base64.RawURLEncoding` from `"encoding/base64"` (unpadded, `-` and `_`, URL-safe).
+      - In `Issue`: marshal payload to JSON, compute HMAC-SHA256 directly on raw JSON bytes, and concatenate `<b64Payload>.<b64Sig>`.
+      - In `Decrypt`/`Verify`: parse with `strings.Cut(token, ".")`, decode base64 parts, verify HMAC on decoded payload bytes before unmarshaling.
+      - Remove obsolete `materializedSignedUploadPolicy` (signature is part of envelope, not payload JSON).
+      - Update unit tests in `internal/auth/auth_test.go` to assert on string tokens.
     * [ ] Return explicit Go errors (`ErrExpired`, `ErrInvalidSignature`, `ErrMalformedToken`).
   - [ ] **Phase 3: HTTP Server Integration (`internal/server`):**
     * Support dual transport: `Authorization: Bearer <token>` header (for uploads) and `?token=...` query param (for downloads).
