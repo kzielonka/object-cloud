@@ -251,3 +251,31 @@ Standard comparisons (`bytes.Equal(a, b)` or `str1 == str2`) **early-exit** on t
       }()
   }
   ```
+
+### 7. `time.Time`: Wall Clock vs. Monotonic Clock (The `t1 == t2` Trap):
+Introduced in Go 1.9 (after Cloudflare's 2016 leap-second DNS outage), every `time.Time` struct can hold **two distinct clocks** at once:
+
+1. **Wall Clock (for *telling* time):** Represents calendar date and time-of-day. Used when printing, formatting (`t.Format`), or serializing to JSON/databases. **Susceptible to NTP clock jumps, daylight savings, and leap seconds.**
+2. **Monotonic Clock (for *measuring* time):** A CPU counter that strictly ticks forward and **never moves backwards**, immune to NTP adjustments and leap seconds. Used automatically by `t2.Sub(t1)`, `time.Since(t1)`, and `t1.Before(t2)`.
+
+```mermaid
+flowchart TD
+    Now["t := time.Now()"]
+    Now -->|Contains| Wall["Wall Clock (Date / Time / Formatting)"]
+    Now -->|Contains| Mono["Monotonic Reading (Elapsed Time Measuring)"]
+```
+
+#### The Critical Bug: NEVER use `t1 == t2`!
+Go's `==` operator compares struct fields bit-by-bit, including the internal monotonic reading and timezone pointers:
+```go
+t1 := time.Now()
+t2 := t1.Round(0) // Strips the monotonic clock reading
+
+// Even though both represent the EXACT same instant:
+fmt.Println(t1 == t2)      // ❌ FALSE! (t1 has monotonic reading, t2 does not)
+fmt.Println(t1.Equal(t2)) // ✅ TRUE! Always use .Equal()
+```
+* **Rule:** If `t1` came from `time.Now()` and `t2` came from JSON/DB/parsing, `t1 == t2` will **almost always return `false`**.
+* **Fix:** **Always use `t1.Equal(t2)`** to compare points in time.
+* **Stripping monotonic reading:** Call `t.Round(0)` or `t.Truncate(0)` if you explicitly want to strip the monotonic clock (e.g. before asserting in certain test matchers).
+
