@@ -20,6 +20,7 @@ type signedUploadPolicy struct {
 
 type materializedUploadPolicy struct {
 	Key       string    `json:"key"`
+	IssuedAt  time.Time `json:"issued_at"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
@@ -47,9 +48,10 @@ func ExpiresInSec(time int) Option {
 	}
 }
 
-func generateSignature(secret string, key string, expiresAt time.Time) ([]byte, error) {
+func generateSignature(secret string, key string, issuedAt time.Time, expiresAt time.Time) ([]byte, error) {
 	materializedUp := materializedUploadPolicy{
 		Key:       key,
+		IssuedAt:  issuedAt,
 		ExpiresAt: expiresAt,
 	}
 	json1, err := json.Marshal(materializedUp)
@@ -63,12 +65,14 @@ func generateSignature(secret string, key string, expiresAt time.Time) ([]byte, 
 
 func (up *uploadPolicy) Issue(secret string, now time.Time) ([]byte, error) {
 	expiresAt := now.Add(time.Duration(up.expiresInSec) * time.Second)
-	signature, err := generateSignature(secret, up.key, expiresAt)
+
+	signature, err := generateSignature(secret, up.key, now, expiresAt)
 	if err != nil {
 		return nil, errors.New("can not generate signature")
 	}
 	materializedSup := materializedSignedUploadPolicy{
 		Key:       up.key,
+		IssuedAt:  now,
 		ExpiresAt: expiresAt,
 		Signature: signature,
 	}
@@ -92,6 +96,7 @@ func NewUploadToken(token []byte) *uploadToken {
 type decryptedToken struct {
 	isValid   bool
 	key       string
+	issuedAt  time.Time
 	expiresAt time.Time
 }
 
@@ -102,26 +107,29 @@ func (t *uploadToken) Decrypt(secret string) *decryptedToken {
 		return &decryptedToken{
 			isValid:   false,
 			key:       "",
+			issuedAt:  time.Now(),
 			expiresAt: time.Now(),
 		}
 	}
-	signature, err := generateSignature(secret, decodedToken.Key, decodedToken.ExpiresAt)
+	signature, err := generateSignature(secret, decodedToken.Key, decodedToken.IssuedAt, decodedToken.ExpiresAt)
 	if err != nil || !hmac.Equal(signature, decodedToken.Signature) {
 		return &decryptedToken{
 			isValid:   false,
 			key:       decodedToken.Key,
+			issuedAt:  decodedToken.IssuedAt,
 			expiresAt: decodedToken.ExpiresAt,
 		}
 	}
 	return &decryptedToken{
 		isValid:   true,
 		key:       decodedToken.Key,
-		expiresAt: time.Now(),
+		issuedAt:  decodedToken.IssuedAt,
+		expiresAt: decodedToken.ExpiresAt,
 	}
 }
 
-func (dt *decryptedToken) IsValid() bool {
-	return dt.isValid
+func (dt *decryptedToken) IsValid(atTime time.Time) bool {
+	return dt.isValid && (dt.issuedAt.Before(atTime) || dt.issuedAt.Equal(atTime)) && (dt.expiresAt.After(atTime) || dt.expiresAt.Equal(atTime))
 }
 
 func (dt *decryptedToken) Key() string {

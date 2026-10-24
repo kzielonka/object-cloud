@@ -10,12 +10,13 @@ import (
 
 func TestPresignedUrl_Verify(t *testing.T) {
 	presigned_url := auth.NewUploadPolicy("key", auth.ExpiresInSec(3600))
-	token, err := presigned_url.Issue("secret", time.Now())
+	timeNow, _ := time.Parse(time.Kitchen, "10:00AM")
+	token, err := presigned_url.Issue("secret", timeNow)
 	if err != nil {
 		t.Fatalf("can not issue token")
 	}
 	decrypted_token := auth.NewUploadToken(token).Decrypt("secret")
-	if decrypted_token.IsValid() != true {
+	if decrypted_token.IsValid(timeNow) != true {
 		t.Fatalf("token should be valid")
 	}
 	if decrypted_token.Key() != "key" {
@@ -25,12 +26,13 @@ func TestPresignedUrl_Verify(t *testing.T) {
 
 func TestPresignedUrl_FailsOnInvalidSecret(t *testing.T) {
 	presigned_url := auth.NewUploadPolicy("key", auth.ExpiresInSec(3600))
-	token, err := presigned_url.Issue("secret", time.Now())
+	timeNow, _ := time.Parse(time.Kitchen, "10:00AM")
+	token, err := presigned_url.Issue("secret", timeNow)
 	if err != nil {
 		t.Fatalf("can not issue token")
 	}
 	decrypted_token := auth.NewUploadToken(token).Decrypt("secret2")
-	if decrypted_token.IsValid() != false {
+	if decrypted_token.IsValid(timeNow) != false {
 		t.Fatalf("token should be invalid")
 	}
 }
@@ -38,12 +40,13 @@ func TestPresignedUrl_FailsOnInvalidSecret(t *testing.T) {
 func TestPresignedUrl_FailsOnTemperedKey(t *testing.T) {
 	secret := "secret"
 	presigned_url := auth.NewUploadPolicy("key", auth.ExpiresInSec(3600))
-	token, err := presigned_url.Issue(secret, time.Now())
+	timeNow, _ := time.Parse(time.Kitchen, "10:00AM")
+	token, err := presigned_url.Issue(secret, timeNow)
 	if err != nil {
 		t.Fatalf("can not issue token")
 	}
 	decrypted_token := auth.NewUploadToken(token).Decrypt(secret)
-	if decrypted_token.IsValid() == false {
+	if decrypted_token.IsValid(timeNow) == false {
 		t.Fatalf("token should be valid")
 	}
 	var objmap map[string]interface{}
@@ -53,7 +56,30 @@ func TestPresignedUrl_FailsOnTemperedKey(t *testing.T) {
 	objmap["key"] = "new key"
 	temperedToken, _ := json.Marshal(objmap)
 	decrypted_token = auth.NewUploadToken(temperedToken).Decrypt(secret)
-	if decrypted_token.IsValid() != false {
+	if decrypted_token.IsValid(timeNow) != false {
+		t.Fatalf("token should be invalid")
+	}
+}
+
+func TestPresignedUrl_FailsWhenExpired(t *testing.T) {
+	secret := "secret"
+	presigned_url := auth.NewUploadPolicy("key", auth.ExpiresInSec(5*60))
+	timeNow, _ := time.Parse(time.Kitchen, "10:00AM")
+	token, err := presigned_url.Issue(secret, timeNow)
+	if err != nil {
+		t.Fatalf("can not issue token")
+	}
+	decrypted_token := auth.NewUploadToken(token).Decrypt(secret)
+	if decrypted_token.IsValid(timeNow.Add(4*time.Minute)) == false {
+		t.Fatalf("token should be valid")
+	}
+	if decrypted_token.IsValid(timeNow.Add(4*time.Minute+59*time.Second)) == false {
+		t.Fatalf("token should be valid")
+	}
+	if decrypted_token.IsValid(timeNow.Add(5*time.Minute+1*time.Second)) == true {
+		t.Fatalf("token should be invalid")
+	}
+	if decrypted_token.IsValid(timeNow.Add(time.Duration(-1)*time.Second)) == true {
 		t.Fatalf("token should be invalid")
 	}
 }

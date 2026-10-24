@@ -79,8 +79,7 @@ The single-node storage engine (`pkg/object`) serves as the foundational drive-l
   - [ ] **Phase 2: Cryptographic Tamper Protection & Verification:**
     * [x] Applied options loop with default expiration in `NewUploadPolicy`.
     * [x] Implemented HMAC-SHA256 signing and constant-time verification via `hmac.Equal`.
-    * [x] Added unit tests for invalid secrets (`TestPresignedUrl_FailsOnInvalidSecret`) and tampered payloads (`TestPresignedUrl_FailsOnTemperedKey`).
-    * [ ] **Next:** Add missing expiration test (`TestPresignedUrl_FailsOnExpiredToken`) and enforce `now.Before(decoded.ExpiresAt)` check in `Decrypt`/`Verify`.
+    * [x] Enforced token time window verification (`issuedAt <= atTime <= expiresAt`) and added expiration unit tests (`TestPresignedUrl_FailsWhenExpired`).
     * [ ] **Next:** Refactor token format to JWT-style `base64url(payload).base64url(signature)`:
       - Signs raw payload bytes directly without re-marshaling to avoid JSON canonicalization / key-order discrepancies.
       - Compact, URL-safe string representation.
